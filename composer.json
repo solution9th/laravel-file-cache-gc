@@ -1,0 +1,33 @@
+{
+    "name": "solution9th/laravel-file-cache-gc",
+    "description": "Laravel file cache garbage collection.",
+    "keywords": [
+        "laravel",
+        "cache clear",
+        "clear expired file",
+        "file cache gc",
+        "expired cache file clear",
+        "garbage collection"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "rookie0",
+            "email": "j4fdot@qq.com"
+        }
+    ],
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Solution9th\\LaravelFileCacheGC\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Solution9th\\LaravelFileCacheGC\\FileCacheGCServiceProvider"
+            ]
+        }
+    }
+}
