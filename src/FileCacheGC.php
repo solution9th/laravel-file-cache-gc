@@ -4,8 +4,6 @@ namespace Solution9th\LaravelFileCacheGC;
 
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Storage;
 
 class FileCacheGC extends Command
 {
@@ -27,26 +25,20 @@ class FileCacheGC extends Command
 
         $deleted     = 0;
         $currentTime = Carbon::now()->getTimestamp();
-        $ignoreFiles = ['.', '..', '.gitignore'];
         foreach ($fileStores as $store) {
-            $disk = md5($store['path']);
-            Config::set('filesystems.disks.' . $disk, ['driver' => 'local', 'root' => $store['path']]);
+            foreach ($this->getFiles($store['path']) as $file) {
+                try {
+                    $expire = substr(@file_get_contents($file), 0, 10);
+                    if ($expire <= $currentTime) {
+                        @unlink($file);
+                        $deleted++;
 
-            foreach ($this->getFiles($disk) as $file) {
-                if (! in_array(basename($file), $ignoreFiles)) {
-                    try {
-                        $expire = substr(Storage::disk($disk)->get($file), 0, 10);
-                        if ($expire <= $currentTime) {
-                            Storage::disk($disk)->delete($file);
-                            $deleted++;
-
-                            if ($outputDetail) {
-                                $this->info($file);
-                            }
+                        if ($outputDetail) {
+                            $this->info($file);
                         }
-                    } catch (\Exception $e) {
-                        $this->error(sprintf('delete file %s failed, %s', $file, $e->getMessage()));
                     }
+                } catch (\Exception $e) {
+                    $this->error(sprintf('delete file %s failed, %s', $file, $e->getMessage()));
                 }
             }
         }
@@ -55,33 +47,30 @@ class FileCacheGC extends Command
     }
 
     /**
-     * Get all directories
-     * @param string $disk
-     * @param null   $dir
-     * @return \Generator
-     */
-    protected function getDirectories($disk, $dir = null)
-    {
-        foreach (Storage::disk($disk)->directories($dir) as $dir) {
-            yield $dir;
-
-            foreach ($this->getDirectories($disk, $dir) as $sub) {
-                yield $sub;
-            }
-        }
-    }
-
-    /**
      * Get all files
-     * @param $disk
+     * @param $path
      * @return \Generator
      */
-    protected function getFiles($disk)
+    protected function getFiles($path)
     {
-        foreach ($this->getDirectories($disk) as $dir) {
-            foreach (Storage::disk($disk)->files($dir) as $file) {
-                yield $file;
+        $ignoreFiles = ['.', '..', '.gitignore'];
+        if ($dh = @opendir($path)) {
+            while (($filename = readdir($dh)) !== false) {
+                if (! in_array($filename, $ignoreFiles)) {
+                    $file = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $filename;
+                    $type = @filetype($file);
+                    if ($type === 'dir') {
+                        foreach ($this->getFiles($file) as $subFile) {
+                            yield $subFile;
+                        }
+                    }
+
+                    if ($type === 'file') {
+                        yield $file;
+                    }
+                }
             }
+            closedir($dh);
         }
     }
 
